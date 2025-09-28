@@ -24,7 +24,7 @@ from tensorflow.keras import layers, Model, optimizers, callbacks
 from tensorflow.keras.layers import Input, Dense, LSTM, GRU, Dropout, LayerNormalization
 from tensorflow.keras.layers import MultiHeadAttention, GlobalAveragePooling1D
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
+from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
 
 # Scikit-learn for preprocessing and evaluation
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -236,7 +236,7 @@ class TransformerLSTMModel:
         
         # Output layer - predict next 24 hours (96 time steps) for 4 error variables
         outputs = Dense(self.output_length * 4, activation='linear')(dense2)
-        outputs = tf.reshape(outputs, (-1, self.output_length, 4))
+        outputs = tf.keras.layers.Reshape((self.output_length, 4))(outputs)
         
         # Create model
         model = Model(inputs=inputs, outputs=outputs, name='TransformerLSTM_GNSS')
@@ -246,12 +246,12 @@ class TransformerLSTMModel:
     def custom_loss(self, y_true, y_pred):
         """Custom loss function combining MSE and KL divergence."""
         # Mean Squared Error
-        mse_loss = tf.keras.losses.mean_squared_error(y_true, y_pred)
+        mse_loss = tf.keras.losses.MeanSquaredError()(y_true, y_pred)
         
         # KL Divergence to encourage normal distribution
-        # Calculate mean and std of predictions
-        pred_mean = tf.reduce_mean(y_pred, axis=1, keepdims=True)
-        pred_std = tf.math.reduce_std(y_pred, axis=1, keepdims=True)
+        # Calculate mean and std of predictions using Keras operations
+        pred_mean = tf.keras.backend.mean(y_pred, axis=1, keepdims=True)
+        pred_std = tf.keras.backend.std(y_pred, axis=1, keepdims=True)
         
         # Target normal distribution (mean=0, std=1)
         target_mean = 0.0
@@ -259,14 +259,14 @@ class TransformerLSTMModel:
         
         # KL divergence between predicted and target normal distributions
         kl_loss = 0.5 * (
-            tf.square(pred_std / target_std) + 
-            tf.square((pred_mean - target_mean) / target_std) - 
+            tf.keras.backend.square(pred_std / target_std) + 
+            tf.keras.backend.square((pred_mean - target_mean) / target_std) - 
             1.0 + 
-            2 * tf.math.log(target_std / (pred_std + 1e-8))
+            2 * tf.keras.backend.log(target_std / (pred_std + 1e-8))
         )
         
         # Combine losses
-        total_loss = mse_loss + 0.1 * tf.reduce_mean(kl_loss)
+        total_loss = mse_loss + 0.1 * tf.keras.backend.mean(kl_loss)
         
         return total_loss
     
@@ -291,12 +291,6 @@ class TransformerLSTMModel:
         
         # Callbacks
         callbacks_list = [
-            EarlyStopping(
-                monitor='val_loss',
-                patience=15,
-                restore_best_weights=True,
-                verbose=1
-            ),
             ReduceLROnPlateau(
                 monitor='val_loss',
                 factor=0.5,
