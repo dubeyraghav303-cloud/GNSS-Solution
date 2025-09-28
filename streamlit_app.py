@@ -23,7 +23,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Import our forecasting solution
-from gnss_forecasting_solution import GNSSForecaster, GNSSDataProcessor
+from gnss_forecasting_solution import GNSSForecaster, GNSSDataProcessor, TransformerLSTMModel
 
 # Page configuration
 st.set_page_config(
@@ -136,6 +136,8 @@ def main():
                         st.metric("Total Records", len(raw_data))
                     
                     with col2:
+                        # Convert utc_time to datetime before using strftime
+                        raw_data['utc_time'] = pd.to_datetime(raw_data['utc_time'])
                         st.metric("Date Range", f"{raw_data['utc_time'].min().strftime('%Y-%m-%d')} to {raw_data['utc_time'].max().strftime('%Y-%m-%d')}")
                     
                     with col3:
@@ -273,7 +275,7 @@ def main():
                     
                     # Build and train model
                     status_text.text("Building model...")
-                    forecaster.model = forecaster.model or forecaster.TransformerLSTMModel(
+                    forecaster.model = forecaster.model or TransformerLSTMModel(
                         input_shape=(sequence_length, X.shape[-1]),
                         output_length=96
                     )
